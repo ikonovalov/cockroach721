@@ -1,0 +1,9 @@
+version: '2.1'
+
+services:
+
+  solc:
+    image: ethereum/solc:stable
+    volumes:
+      - "../contracts/:/tmp/eth/contracts/:rw"
+    command: --overwrite -o /tmp/eth/contracts/gen --bin --hashes --abi --metadata /tmp/eth/contracts/NonFungibleToken.sol
