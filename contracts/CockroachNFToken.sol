@@ -15,17 +15,25 @@ import "./DetailedERC721.sol";
  * Standard Author: dete
  * Implementation Author: Nadav Hollander <nadav at dharma.io>
  */
-contract NonFungibleToken is DetailedERC721 {
+contract CockroachNFToken is DetailedERC721 {
+
     string public name;
     string public symbol;
-
-    uint public numTokensTotal;
+    uint public population;
 
     mapping(uint => address) internal tokenIdToOwner;
     mapping(uint => address) internal tokenIdToApprovedAddress;
     mapping(uint => string) internal tokenIdToMetadata;
     mapping(address => uint[]) internal ownerToTokensOwned;
     mapping(uint => uint) internal tokenIdToOwnerArrayIndex;
+
+    Cockroach[] cockroaches;
+
+    struct Cockroach {
+        string name;
+        uint8 speed;
+        uint unique;
+    }
 
     event Transfer(
         address indexed _from,
@@ -39,83 +47,57 @@ contract NonFungibleToken is DetailedERC721 {
         uint256 _tokenId
     );
 
-    modifier onlyExtantToken(uint _tokenId) {
-        require(ownerOf(_tokenId) != address(0));
+    modifier onlyExtantToken(uint _cockroachId) {
+        require(ownerOf(_cockroachId) != address(0));
         _;
     }
 
-    function NonFungibleToken() public {
-        name = "CryptoCockroach";
-        symbol = "CCCR";
-        numTokensTotal = 1024;
+    modifier onlyNonexistentToken(uint _tokenId) {
+        require(tokenIdToOwner[_tokenId] == address(0));
+        _;
     }
 
-    function name()
-    public
-    view
-    returns (string _name)
-    {
+    function CockroachNFToken() public {
+        name = "CryptoCockroach";
+        symbol = "CCCR";
+        population = 0;
+    }
+
+    function name() public view returns (string _name) {
         return name;
     }
 
-    function symbol()
-    public
-    view
-    returns (string _symbol)
-    {
+    function symbol() public view returns (string _symbol) {
         return symbol;
     }
 
-    function totalSupply()
-    public
-    view
-    returns (uint256 _totalSupply)
-    {
-        return numTokensTotal;
+    function totalSupply() public view returns (uint256 _totalSupply) {
+        return population;
     }
 
-    function balanceOf(address _owner)
-    public
-    view
-    returns (uint _balance)
-    {
+    function balanceOf(address _owner) public view returns (uint _balance) {
         return ownerToTokensOwned[_owner].length;
     }
 
-    function ownerOf(uint _tokenId)
-    public
-    view
-    returns (address _owner)
-    {
+    function ownerOf(uint _tokenId) public view returns (address _owner) {
         return _ownerOf(_tokenId);
     }
 
-    function tokenMetadata(uint _tokenId)
-    public
-    view
-    returns (string _infoUrl)
-    {
+    function tokenMetadata(uint _tokenId) public view returns (string _infoUrl) {
         return tokenIdToMetadata[_tokenId];
     }
 
-    function approve(address _to, uint _tokenId)
-    public
-    onlyExtantToken(_tokenId)
-    {
+    function approve(address _to, uint _tokenId) public onlyExtantToken(_tokenId) {
         require(msg.sender == ownerOf(_tokenId));
         require(msg.sender != _to);
 
-        if (_getApproved(_tokenId) != address(0) ||
-        _to != address(0)) {
+        if (_getApproved(_tokenId) != address(0) || _to != address(0)) {
             _approve(_to, _tokenId);
             Approval(msg.sender, _to, _tokenId);
         }
     }
 
-    function transferFrom(address _from, address _to, uint _tokenId)
-    public
-    onlyExtantToken(_tokenId)
-    {
+    function transferFrom(address _from, address _to, uint _tokenId) public onlyExtantToken(_tokenId) {
         require(getApproved(_tokenId) == msg.sender);
         require(ownerOf(_tokenId) == _from);
         require(_to != address(0));
@@ -126,10 +108,7 @@ contract NonFungibleToken is DetailedERC721 {
         Transfer(_from, _to, _tokenId);
     }
 
-    function transfer(address _to, uint _tokenId)
-    public
-    onlyExtantToken(_tokenId)
-    {
+    function transfer(address _to, uint _tokenId) public onlyExtantToken(_tokenId) {
         require(ownerOf(_tokenId) == msg.sender);
         require(_to != address(0));
 
@@ -139,108 +118,63 @@ contract NonFungibleToken is DetailedERC721 {
         Transfer(msg.sender, _to, _tokenId);
     }
 
-    function tokenOfOwnerByIndex(address _owner, uint _index)
-    public
-    view
-    returns (uint _tokenId)
-    {
+    function tokenOfOwnerByIndex(address _owner, uint _index) public view returns (uint _tokenId) {
         return _getOwnerTokenByIndex(_owner, _index);
     }
 
-    function getOwnerTokens(address _owner)
-    public
-    view
-    returns (uint[] _tokenIds)
-    {
+    function getOwnerTokens(address _owner) public view returns (uint[] _tokenIds) {
         return _getOwnerTokens(_owner);
     }
 
-    function implementsERC721()
-    public
-    view
-    returns (bool _implementsERC721)
-    {
+    function implementsERC721() public view returns (bool _implementsERC721) {
         return true;
     }
 
-    function getApproved(uint _tokenId)
-    public
-    view
-    returns (address _approved)
-    {
+    function getApproved(uint _tokenId) public view returns (address _approved) {
         return _getApproved(_tokenId);
     }
 
-    function _clearApprovalAndTransfer(address _from, address _to, uint _tokenId)
-    internal
-    {
+    function _clearApprovalAndTransfer(address _from, address _to, uint _tokenId) internal {
         _clearTokenApproval(_tokenId);
         _removeTokenFromOwnersList(_from, _tokenId);
         _setTokenOwner(_tokenId, _to);
         _addTokenToOwnersList(_to, _tokenId);
     }
 
-    function _ownerOf(uint _tokenId)
-    internal
-    view
-    returns (address _owner)
-    {
+    function _ownerOf(uint _tokenId) internal view returns (address _owner) {
         return tokenIdToOwner[_tokenId];
     }
 
-    function _approve(address _to, uint _tokenId)
-    internal
-    {
+    function _approve(address _to, uint _tokenId) internal {
         tokenIdToApprovedAddress[_tokenId] = _to;
     }
 
-    function _getApproved(uint _tokenId)
-    internal
-    view
-    returns (address _approved)
-    {
+    function _getApproved(uint _tokenId) internal view returns (address _approved) {
         return tokenIdToApprovedAddress[_tokenId];
     }
 
-    function _getOwnerTokens(address _owner)
-    internal
-    view
-    returns (uint[] _tokens)
-    {
+    function _getOwnerTokens(address _owner) internal view returns (uint[] _tokens) {
         return ownerToTokensOwned[_owner];
     }
 
-    function _getOwnerTokenByIndex(address _owner, uint _index)
-    internal
-    view
-    returns (uint _tokens)
-    {
+    function _getOwnerTokenByIndex(address _owner, uint _index) internal view returns (uint _tokens) {
         return ownerToTokensOwned[_owner][_index];
     }
 
-    function _clearTokenApproval(uint _tokenId)
-    internal
-    {
+    function _clearTokenApproval(uint _tokenId) internal {
         tokenIdToApprovedAddress[_tokenId] = address(0);
     }
 
-    function _setTokenOwner(uint _tokenId, address _owner)
-    internal
-    {
+    function _setTokenOwner(uint _tokenId, address _owner) internal {
         tokenIdToOwner[_tokenId] = _owner;
     }
 
-    function _addTokenToOwnersList(address _owner, uint _tokenId)
-    internal
-    {
+    function _addTokenToOwnersList(address _owner, uint _tokenId) internal {
         ownerToTokensOwned[_owner].push(_tokenId);
-        tokenIdToOwnerArrayIndex[_tokenId] =
-        ownerToTokensOwned[_owner].length - 1;
+        tokenIdToOwnerArrayIndex[_tokenId] = ownerToTokensOwned[_owner].length - 1;
     }
 
-    function _removeTokenFromOwnersList(address _owner, uint _tokenId)
-    internal
-    {
+    function _removeTokenFromOwnersList(address _owner, uint _tokenId) internal {
         uint length = ownerToTokensOwned[_owner].length;
         uint index = tokenIdToOwnerArrayIndex[_tokenId];
         uint swapToken = ownerToTokensOwned[_owner][length - 1];
@@ -252,9 +186,7 @@ contract NonFungibleToken is DetailedERC721 {
         ownerToTokensOwned[_owner].length--;
     }
 
-    function _insertTokenMetadata(uint _tokenId, string _metadata)
-    internal
-    {
+    function _insertTokenMetadata(uint _tokenId, string _metadata) internal {
         tokenIdToMetadata[_tokenId] = _metadata;
     }
 }

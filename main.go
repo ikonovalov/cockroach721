@@ -37,8 +37,9 @@ func main() {
 }
 
 func createSimulatedBackend(auth *bind.TransactOpts) *backends.SimulatedBackend {
+	oneEther := big.NewInt(1000000000000000000)
 	alloc := make(core.GenesisAlloc)
-	alloc[auth.From] = core.GenesisAccount{Balance: big.NewInt(13370000000)}
+	alloc[auth.From] = core.GenesisAccount{Balance: oneEther}
 	sim := backends.NewSimulatedBackend(alloc)
 	return sim
 }
