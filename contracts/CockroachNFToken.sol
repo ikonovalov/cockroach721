@@ -1,6 +1,7 @@
 pragma solidity ^0.4.20;
 
 import "./DetailedERC721.sol";
+import "./TokenGovernment.sol";
 
 
 /**
@@ -15,7 +16,7 @@ import "./DetailedERC721.sol";
  * Standard Author: dete
  * Implementation Author: Nadav Hollander <nadav at dharma.io>
  */
-contract CockroachNFToken is DetailedERC721 {
+contract CockroachNFToken is TokenGovernment, DetailedERC721 {
 
     string public name;
     string public symbol;

@@ -19,7 +19,7 @@ func waitDeployed(backend bind.DeployBackend, ctx context.Context, tx *types.Tra
 	}()
 	select {
 	case a := <-mined:
-		fmt.Printf("Mined! Contract %s deployed.\n", a.String())
+		fmt.Printf("Contract %s deployed.\n", a.String())
 		return a
 	case <-time.After(20 * time.Second):
 		panic(fmt.Errorf("%s timeout", tx.Hash().String()))

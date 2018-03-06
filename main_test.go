@@ -9,12 +9,32 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"math/big"
 	"fmt"
+	"math"
+	"github.com/ethereum/go-ethereum/core"
 )
 
 // 1 Ether = 1000000000000000000
 
-func deployWith(ctx context.Context, txOps *bind.TransactOpts) (breedingToken *cockroach.CockroachToken, backend *backends.SimulatedBackend) {
-	backend = createSimulatedBackend(txOps)
+var (
+	wei     = int64(math.Pow(10.0, 0.0))
+	ada     = int64(math.Pow(10.0, 3.0))
+	babbage = int64(math.Pow(10.0, 6.0))
+	shannon = int64(math.Pow(10.0, 9.0))
+	szabo   = int64(math.Pow(10.0, 12.0))
+	finney  = int64(math.Pow(10.0, 15.0))
+	ether   = int64(math.Pow(10.0, 18.0))
+)
+
+func createSimulatedBackend(auth *bind.TransactOpts) *backends.SimulatedBackend {
+	alloc := make(core.GenesisAlloc)
+	alloc[auth.From] = core.GenesisAccount{
+		Balance: big.NewInt(1 * ether),
+	}
+	sim := backends.NewSimulatedBackend(alloc)
+	return sim
+}
+
+func deployWith(ctx context.Context, backend *backends.SimulatedBackend, txOps *bind.TransactOpts) (breedingToken *cockroach.CockroachToken) {
 	_, tx, breedingToken, err := cockroach.DeployCockroachToken(txOps, backend)
 	exitIf(err)
 	backend.Commit()
@@ -29,6 +49,7 @@ func failIf(err error, t *testing.T) {
 }
 
 func TestDeployBreedingNFToken(t *testing.T) {
+	fmt.Println("===================================================================================================")
 	ctx := context.Background()
 	key, _ := crypto.GenerateKey()
 	auth := bind.NewKeyedTransactor(key)
@@ -43,29 +64,36 @@ func TestDeployBreedingNFToken(t *testing.T) {
 }
 
 func TestSpawnOne(t *testing.T) {
+	fmt.Println("===================================================================================================")
 	ctx := context.Background()
 	key, _ := crypto.GenerateKey()
 	auth := bind.NewKeyedTransactor(key)
 
-	breedingToken, backend := deployWith(ctx, auth)
+	backend := createSimulatedBackend(auth)
+
+	breedingToken := deployWith(ctx, backend, auth)
 
 	balanceAt, err := backend.BalanceAt(ctx, auth.From, nil)
-	fmt.Printf("%s balance %s\n", auth.From.Hex(), balanceAt.String())
+	fmt.Printf("Account %s has balance %s wei.\n", auth.From.Hex(), balanceAt.String())
 	failIf(err, t)
 
+	// Initial total supply
 	supply, err := breedingToken.TotalSupply(nil)
 	failIf(err, t)
-
+	fmt.Printf("Initial population %d.\n", supply.Int64())
 	if supply.Int64() != 0 {
 		t.Error("Wrong initial population. Not zero.")
 	}
+
+	//speedPriceRequired, _ := breedingToken.CalcSpeedPrice(nil, 5)
+	//fmt.Printf("Required speed fee: %d wei.\n", speedPriceRequired.Int64())
 
 	spawnGasLimit := uint64(200000)
 
 	spawnOps := &bind.TransactOpts{
 		From:     auth.From,
 		Signer:   auth.Signer,
-		Value:    big.NewInt(0),
+		Value:    big.NewInt(5 * 1000000000000000),
 		GasLimit: spawnGasLimit,
 	}
 	tx, err := breedingToken.Spawn(spawnOps, "Jack", 5)
@@ -76,7 +104,7 @@ func TestSpawnOne(t *testing.T) {
 	if txReceipt.GasUsed == spawnGasLimit {
 		t.Error("Throw or OOG!")
 	} else {
-		fmt.Printf("Spawn op use %d gas\n", txReceipt.GasUsed)
+		fmt.Printf("SPAWN: TxReceipt %s GasUsed %d. GasLimit %d.\n", txReceipt.TxHash.Hex(), txReceipt.GasUsed, spawnOps.GasLimit)
 	}
 
 	supply, err = breedingToken.TotalSupply(nil)

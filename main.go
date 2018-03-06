@@ -1,48 +1,39 @@
 package main
 
 import (
-	"github.com/ikonovalov/go-cockroach/contracts/bind"
-	"math/big"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
-	"github.com/ethereum/go-ethereum/core"
+	//"github.com/ikonovalov/go-cockroach/contracts/bind"
+	//"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"log"
-	"fmt"
-	"context"
-	"github.com/ethereum/go-ethereum/crypto"
+	//"fmt"
+	//"context"
+	//"github.com/ethereum/go-ethereum/crypto"
 )
 
 func main() {
-	ctx := context.Background()
-
-	key, _ := crypto.GenerateKey()
-	auth := bind.NewKeyedTransactor(key)
-	fmt.Printf("Coinbase: %s\n", auth.From.Hex())
-
-	backend := createSimulatedBackend(auth)
-
-	_, tx, token, err := cockroach.DeployCockroachToken(auth, backend)
-	exitIf(err)
-
-	backend.Commit()
-	waitDeployed(backend, ctx, tx)
-
-	name, _ := token.Name(nil)
-	symbol, _ := token.Symbol(nil)
-	totalSupply, _ := token.TotalSupply(nil)
-	fmt.Printf("Name: %s\n", name)
-	fmt.Printf("Symbol: %s\n", symbol)
-	fmt.Printf("Total: %s\n", totalSupply)
+	//ctx := context.Background()
+	//
+	//key, _ := crypto.GenerateKey()
+	//auth := bind.NewKeyedTransactor(key)
+	//fmt.Printf("Coinbase: %s\n", auth.From.Hex())
+	//
+	//backend := createSimulatedBackend(auth)
+	//
+	//_, tx, token, err := cockroach.DeployCockroachToken(auth, backend)
+	//exitIf(err)
+	//
+	//backend.Commit()
+	//waitDeployed(backend, ctx, tx)
+	//
+	//name, _ := token.Name(nil)
+	//symbol, _ := token.Symbol(nil)
+	//totalSupply, _ := token.TotalSupply(nil)
+	//fmt.Printf("Name: %s\n", name)
+	//fmt.Printf("Symbol: %s\n", symbol)
+	//fmt.Printf("Total: %s\n", totalSupply)
 
 }
 
-func createSimulatedBackend(auth *bind.TransactOpts) *backends.SimulatedBackend {
-	oneEther := big.NewInt(1000000000000000000)
-	alloc := make(core.GenesisAlloc)
-	alloc[auth.From] = core.GenesisAccount{Balance: oneEther}
-	sim := backends.NewSimulatedBackend(alloc)
-	return sim
-}
+
 
 func exitIf(e error) {
 	if e != nil {
