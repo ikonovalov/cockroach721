@@ -62,6 +62,9 @@ contract CockroachNFToken is TokenGovernment, DetailedERC721 {
         name = "CryptoCockroach";
         symbol = "CCCR";
         population = 0;
+        ceoAddress = msg.sender;
+        cooAddress = msg.sender;
+        cfoAddress = msg.sender;
     }
 
     function name() public view returns (string _name) {

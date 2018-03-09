@@ -12,6 +12,8 @@ run: build
 	./bin/dapp
 build:
 	go build -o bin/dapp .
+test:
+	go test
 
 solc-compile:
 	docker-compose -f ${DC_FILE} up && ls -l contracts/gen && docker-compose -f ${DC_FILE} down

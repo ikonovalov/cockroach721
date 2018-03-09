@@ -11,24 +11,25 @@ import (
 	"fmt"
 	"math"
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 // 1 Ether = 1000000000000000000
 
 var (
-	wei     = int64(math.Pow(10.0, 0.0))
-	ada     = int64(math.Pow(10.0, 3.0))
-	babbage = int64(math.Pow(10.0, 6.0))
-	shannon = int64(math.Pow(10.0, 9.0))
-	szabo   = int64(math.Pow(10.0, 12.0))
-	finney  = int64(math.Pow(10.0, 15.0))
-	ether   = int64(math.Pow(10.0, 18.0))
+	wei     = uint64(math.Pow(10.0, 0.0))
+	ada     = uint64(math.Pow(10.0, 3.0))
+	babbage = uint64(math.Pow(10.0, 6.0))
+	shannon = uint64(math.Pow(10.0, 9.0))
+	szabo   = uint64(math.Pow(10.0, 12.0))
+	finney  = uint64(math.Pow(10.0, 15.0))
+	ether   = uint64(math.Pow(10.0, 18.0))
 )
 
 func createSimulatedBackend(auth *bind.TransactOpts) *backends.SimulatedBackend {
 	alloc := make(core.GenesisAlloc)
 	alloc[auth.From] = core.GenesisAccount{
-		Balance: big.NewInt(1 * ether),
+		Balance: new(big.Int).SetUint64(1 * ether),
 	}
 	sim := backends.NewSimulatedBackend(alloc)
 	return sim
@@ -39,6 +40,8 @@ func deployWith(ctx context.Context, backend *backends.SimulatedBackend, txOps *
 	exitIf(err)
 	backend.Commit()
 	waitDeployed(backend, ctx, tx)
+	receipt, _ := backend.TransactionReceipt(ctx, tx.Hash())
+	fmt.Printf("Deploy gas used %d.\n", receipt.CumulativeGasUsed)
 	return
 }
 
@@ -70,11 +73,13 @@ func TestSpawnOne(t *testing.T) {
 	auth := bind.NewKeyedTransactor(key)
 
 	backend := createSimulatedBackend(auth)
+	suggestGasPrice, _ := backend.SuggestGasPrice(ctx)
 
+	// deploy breeding token
 	breedingToken := deployWith(ctx, backend, auth)
 
-	balanceAt, err := backend.BalanceAt(ctx, auth.From, nil)
-	fmt.Printf("Account %s has balance %s wei.\n", auth.From.Hex(), balanceAt.String())
+	balanceAtInitial, err := backend.BalanceAt(ctx, auth.From, nil)
+	fmt.Printf("Account %s has balance %s wei.\n", auth.From.Hex(), balanceAtInitial.String())
 	failIf(err, t)
 
 	// Initial total supply
@@ -85,15 +90,13 @@ func TestSpawnOne(t *testing.T) {
 		t.Error("Wrong initial population. Not zero.")
 	}
 
-	//speedPriceRequired, _ := breedingToken.CalcSpeedPrice(nil, 5)
-	//fmt.Printf("Required speed fee: %d wei.\n", speedPriceRequired.Int64())
-
 	spawnGasLimit := uint64(200000)
 
 	spawnOps := &bind.TransactOpts{
 		From:     auth.From,
 		Signer:   auth.Signer,
-		Value:    big.NewInt(5 * 1000000000000000),
+		Value:    new(big.Int).SetUint64(5*finney + 17),
+		GasPrice: suggestGasPrice,
 		GasLimit: spawnGasLimit,
 	}
 	tx, err := breedingToken.Spawn(spawnOps, "Jack", 5)
@@ -101,15 +104,71 @@ func TestSpawnOne(t *testing.T) {
 	backend.Commit()
 
 	txReceipt := waitTx(backend, ctx, tx)
-	if txReceipt.GasUsed == spawnGasLimit {
-		t.Error("Throw or OOG!")
+	if txReceipt.CumulativeGasUsed == spawnGasLimit {
+		t.Error("OOG!")
 	} else {
-		fmt.Printf("SPAWN: TxReceipt %s GasUsed %d. GasLimit %d.\n", txReceipt.TxHash.Hex(), txReceipt.GasUsed, spawnOps.GasLimit)
+		fmt.Printf("SPAWN: TxReceipt %s GasUsed %d. GasLimit %d.\n", txReceipt.TxHash.Hex(), txReceipt.CumulativeGasUsed, spawnOps.GasLimit)
 	}
 
 	supply, err = breedingToken.TotalSupply(nil)
 	failIf(err, t)
 	if supply.Int64() != 1 {
 		t.Errorf("Wrong population count after one spawn op. Expected 1, but got %s.", supply)
+	}
+
+	// check final balance
+	balanceAtEnd, _ := backend.BalanceAt(ctx, auth.From, nil)
+	fmt.Printf("Account %s has balance %s wei.\n", auth.From.Hex(), balanceAtEnd.String())
+	balanceDiff := new(big.Int).Sub(balanceAtInitial, balanceAtEnd).Uint64()
+
+	usedGasFee := suggestGasPrice.Uint64() * txReceipt.CumulativeGasUsed
+	fmt.Printf("Used gas fee %d wei.\n", usedGasFee)
+	if balanceDiff != (5*finney + usedGasFee) {
+		t.Error("Bad ending balance")
+	}
+}
+
+func TestSpawnTenCockroachAndHandleEvent(t *testing.T) {
+	fmt.Println("===================================================================================================")
+	var (
+		ctx                = context.Background()
+		key, _             = crypto.GenerateKey()
+		auth               = bind.NewKeyedTransactor(key)
+		backend            = createSimulatedBackend(auth)
+		suggestGasPrice, _ = backend.SuggestGasPrice(ctx)
+		breedingToken      = deployWith(ctx, backend, auth)
+	)
+	fmt.Printf("Coinbase %s\n", auth.From.Hex())
+
+	spawnOps := &bind.TransactOpts{
+		From:     auth.From,
+		Signer:   auth.Signer,
+		Value:    new(big.Int).SetUint64(5 * finney),
+		GasPrice: suggestGasPrice,
+		GasLimit: uint64(200000),
+	}
+
+	for i := 0; i < 10; i++ {
+		tx, err := breedingToken.Spawn(spawnOps, "Mary", 5)
+		failIf(err, t)
+		backend.Commit()
+		waitTx(backend, ctx, tx)
+	}
+
+	iterator, err := breedingToken.FilterSpawn(new(bind.FilterOpts), []common.Address{auth.From})
+	failIf(err, t)
+	eventCount := 0
+	for iterator.Next() {
+		var (
+			spawnEvent = iterator.Event
+			tokenId    = spawnEvent.TokenId.Uint64()
+			owner      = spawnEvent.To.Hex()
+		)
+		fmt.Printf("SPAWN EVENT. TokenID %d, OWNER %s\n", tokenId, owner)
+		eventCount++
+	}
+
+	if eventCount != 10 {
+		t.FailNow()
 	}
 }

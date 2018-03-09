@@ -18,9 +18,9 @@ func waitDeployed(backend bind.DeployBackend, ctx context.Context, tx *types.Tra
 		close(mined)
 	}()
 	select {
-	case a := <-mined:
-		fmt.Printf("Contract %s deployed.\n", a.String())
-		return a
+	case addr := <-mined:
+		fmt.Printf("Contract %s deployed.\n", addr.String())
+		return addr
 	case <-time.After(20 * time.Second):
 		panic(fmt.Errorf("%s timeout", tx.Hash().String()))
 	}
@@ -38,9 +38,9 @@ func waitTx(backend bind.DeployBackend, ctx context.Context, tx *types.Transacti
 		close(mined)
 	}()
 	select {
-	case r := <-mined:
-		fmt.Printf("Tx Mined! GasUsed: %d\n", r.GasUsed)
-		return r
+	case reciept := <-mined:
+		fmt.Printf("Tx Mined! GasUsed: %d\n", reciept.GasUsed)
+		return reciept
 	case <-time.After(20 * time.Second):
 		panic(fmt.Errorf("%s timeout", tx.Hash().String()))
 	}

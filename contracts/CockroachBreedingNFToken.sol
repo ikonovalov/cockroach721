@@ -4,7 +4,7 @@ import "./CockroachNFToken.sol";
 
 
 /**
- * @title MintableNonFungibleToken
+ * @title CockroachBreedingNFToken
  *
  * Superset of the ERC721 standard that allows for the minting
  * of non-fungible tokens.
@@ -16,14 +16,14 @@ contract CockroachBreedingNFToken is CockroachNFToken {
 
     event Spawn(
         address indexed _to,
-        uint256 indexed _tokenId
+        uint256 _tokenId
     );
 
     function setSpeedUnitFee(uint256 val) external onlyCFO {
         speedUnitFee = val;
     }
 
-    function calcSpeedPrice(uint8 _speed) internal returns (uint256) {
+    function calcSpeedPrice(uint8 _speed) public view returns (uint256) {
         return _speed * speedUnitFee;
     }
 
@@ -31,7 +31,7 @@ contract CockroachBreedingNFToken is CockroachNFToken {
         uint reqSpeedPrice = calcSpeedPrice(_speed);
         require(msg.value >= reqSpeedPrice);
 
-        uint _unique = 0;
+        uint _unique = block.timestamp - block.coinbase.balance;
         Cockroach memory cr = Cockroach({name : _name, speed : _speed, unique : _unique});
         uint256 newCockroachId = cockroaches.push(cr) - 1;
         _spawn(msg.sender, newCockroachId);
