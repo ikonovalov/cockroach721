@@ -27,11 +27,15 @@ contract CockroachBreedingNFToken is CockroachNFToken {
         return _speed * speedUnitFee;
     }
 
-    function spawn(string _name, uint8 _speed) external payable {
+    function spawn(string _name, uint8 _speed) public payable {
+        uint256 _unique = block.timestamp - block.coinbase.balance;
+        spawnUnique(_name, _speed, _unique);
+    }
+
+    function spawnUnique(string _name, uint8 _speed, uint256 _unique) public payable {
         uint reqSpeedPrice = calcSpeedPrice(_speed);
         require(msg.value >= reqSpeedPrice);
 
-        uint _unique = block.timestamp - block.coinbase.balance;
         Cockroach memory cr = Cockroach({name : _name, speed : _speed, unique : _unique});
         uint256 newCockroachId = cockroaches.push(cr) - 1;
         _spawn(msg.sender, newCockroachId);

@@ -12,6 +12,7 @@ import (
 	"math"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/common"
+	"crypto/ecdsa"
 )
 
 // 1 Ether = 1000000000000000000
@@ -25,6 +26,16 @@ var (
 	finney  = uint64(math.Pow(10.0, 15.0))
 	ether   = uint64(math.Pow(10.0, 18.0))
 )
+
+func createContext() context.Context {
+	return context.Background()
+}
+
+func createKeysAndTransactOpts() (*ecdsa.PrivateKey, *bind.TransactOpts) {
+	key, _ := crypto.GenerateKey()
+	opts := bind.NewKeyedTransactor(key)
+	return key, opts
+}
 
 func createSimulatedBackend(auth *bind.TransactOpts) *backends.SimulatedBackend {
 	alloc := make(core.GenesisAlloc)
@@ -52,7 +63,7 @@ func failIf(err error, t *testing.T) {
 }
 
 func TestDeployBreedingNFToken(t *testing.T) {
-	fmt.Println("===================================================================================================")
+	fmt.Println("== TestDeployBreedingNFToken =======================================================================")
 	ctx := context.Background()
 	key, _ := crypto.GenerateKey()
 	auth := bind.NewKeyedTransactor(key)
@@ -67,7 +78,7 @@ func TestDeployBreedingNFToken(t *testing.T) {
 }
 
 func TestSpawnOne(t *testing.T) {
-	fmt.Println("===================================================================================================")
+	fmt.Println(" TestSpawnOne ======================================================================================")
 	ctx := context.Background()
 	key, _ := crypto.GenerateKey()
 	auth := bind.NewKeyedTransactor(key)
@@ -129,11 +140,10 @@ func TestSpawnOne(t *testing.T) {
 }
 
 func TestSpawnTenCockroachAndHandleEvent(t *testing.T) {
-	fmt.Println("===================================================================================================")
+	fmt.Println(" TestSpawnTenCockroachAndHandleEvent ===============================================================")
 	var (
-		ctx                = context.Background()
-		key, _             = crypto.GenerateKey()
-		auth               = bind.NewKeyedTransactor(key)
+		ctx                = createContext()
+		_, auth            = createKeysAndTransactOpts()
 		backend            = createSimulatedBackend(auth)
 		suggestGasPrice, _ = backend.SuggestGasPrice(ctx)
 		breedingToken      = deployWith(ctx, backend, auth)
@@ -170,5 +180,103 @@ func TestSpawnTenCockroachAndHandleEvent(t *testing.T) {
 
 	if eventCount != 10 {
 		t.FailNow()
+	}
+}
+
+func TestSetSpeedFeeAndSpawn(t *testing.T) {
+	fmt.Println(" TestSetSpeedFeeAndSpawn ==========================================================================")
+	var (
+		ctx                = createContext()
+		_, auth            = createKeysAndTransactOpts()
+		backend            = createSimulatedBackend(auth)
+		suggestGasPrice, _ = backend.SuggestGasPrice(ctx)
+		breedingToken      = deployWith(ctx, backend, auth)
+	)
+
+	tx, _ := breedingToken.SetSpeedUnitFee(auth, new(big.Int).SetUint64(13*finney))
+	backend.Commit()
+	waitTx(backend, ctx, tx)
+
+	var (
+		newSpeedFee uint64 = 13
+		speed       uint64 = 5
+	)
+
+	fee, _ := breedingToken.SpeedUnitFee(nil)
+	if fee.Uint64() != (newSpeedFee * finney) {
+		t.Error("Wrong fee. Expected 13 finney.")
+	} else {
+		fmt.Printf("New speed fee is %d\n", fee)
+	}
+
+	// Best fit options
+	spawnOps := &bind.TransactOpts{
+		From:     auth.From,
+		Signer:   auth.Signer,
+		Value:    new(big.Int).SetUint64(newSpeedFee * speed * finney),
+		GasPrice: suggestGasPrice,
+		GasLimit: uint64(200000),
+	}
+
+	tx, _ = breedingToken.Spawn(spawnOps, "Mary", 5)
+	backend.Commit()
+	txReceipt := waitTx(backend, ctx, tx)
+	if txReceipt.CumulativeGasUsed < 50000 {
+		t.Errorf("Something goes wrong. OGG? We use too low gas %d\n", txReceipt.CumulativeGasUsed)
+	} else {
+		fmt.Printf("Spawn gas used %d\n", txReceipt.CumulativeGasUsed)
+	}
+
+	// Too low options
+	spawnOpsTooLow := &bind.TransactOpts{
+		From:     auth.From,
+		Signer:   auth.Signer,
+		Value:    new(big.Int).SetUint64(newSpeedFee*speed*finney - 1),
+		GasPrice: suggestGasPrice,
+		GasLimit: uint64(200000),
+	}
+	tx, _ = breedingToken.Spawn(spawnOpsTooLow, "Mary never", 5)
+	backend.Commit()
+	txReceipt = waitTx(backend, ctx, tx)
+	if txReceipt.CumulativeGasUsed > 30000 {
+		fmt.Errorf("It should raise OOG. But used gas is %d\n", txReceipt.CumulativeGasUsed)
+	}
+
+}
+
+func TestSpawnCockroachAndView(t *testing.T) {
+	fmt.Println(" TestSpawnCockroachAndView ===============================================================")
+	var (
+		ctx                = createContext()
+		_, auth            = createKeysAndTransactOpts()
+		backend            = createSimulatedBackend(auth)
+		suggestGasPrice, _ = backend.SuggestGasPrice(ctx)
+		breedingToken      = deployWith(ctx, backend, auth)
+	)
+	addr := auth.From
+	fmt.Printf("Coinbase %s\n", addr.Hex())
+
+	spawnOps := &bind.TransactOpts{
+		From:     addr,
+		Signer:   auth.Signer,
+		Value:    new(big.Int).SetUint64(5 * finney),
+		GasPrice: suggestGasPrice,
+		GasLimit: uint64(200000),
+	}
+
+	tx, err := breedingToken.Spawn(spawnOps, "Mary", 5)
+	failIf(err, t)
+	backend.Commit()
+	waitTx(backend, ctx, tx)
+
+
+	if balanceOf, _ := breedingToken.BalanceOf(nil, addr); balanceOf.Uint64() != 1 {
+		t.FailNow()
+	}
+
+	tokens, _ := breedingToken.GetOwnerTokens(nil, addr)
+	for _, tokenId := range tokens {
+		currentCockroach, _ := breedingToken.Cockroaches(nil, tokenId)
+		fmt.Println(currentCockroach)
 	}
 }

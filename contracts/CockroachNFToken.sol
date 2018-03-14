@@ -28,7 +28,7 @@ contract CockroachNFToken is TokenGovernment, DetailedERC721 {
     mapping(address => uint[]) internal ownerToTokensOwned;
     mapping(uint => uint) internal tokenIdToOwnerArrayIndex;
 
-    Cockroach[] cockroaches;
+    Cockroach[] public cockroaches;
 
     struct Cockroach {
         string name;

@@ -65,4 +65,11 @@ contract TokenGovernment {
         // can't unpause if contract was upgraded
         paused = false;
     }
+
+    function withdrawBalance() external onlyCFO {
+        uint256 balance = this.balance;
+        if (balance > 0) {
+            cfoAddress.transfer(balance);
+        }
+    }
 }
