@@ -202,8 +202,8 @@ func TestSetSpeedFeeAndSpawn(t *testing.T) {
 		speed       uint64 = 5
 	)
 
-	fee, _ := breedingToken.SpeedUnitFee(nil)
-	if fee.Uint64() != (newSpeedFee * finney) {
+
+	if fee, _ := breedingToken.SpeedUnitFee(nil); fee.Uint64() != (newSpeedFee * finney) {
 		t.Error("Wrong fee. Expected 13 finney.")
 	} else {
 		fmt.Printf("New speed fee is %d\n", fee)
@@ -220,8 +220,8 @@ func TestSetSpeedFeeAndSpawn(t *testing.T) {
 
 	tx, _ = breedingToken.Spawn(spawnOps, "Mary", 5)
 	backend.Commit()
-	txReceipt := waitTx(backend, ctx, tx)
-	if txReceipt.CumulativeGasUsed < 50000 {
+
+	if txReceipt := waitTx(backend, ctx, tx); txReceipt.CumulativeGasUsed < 50000 {
 		t.Errorf("Something goes wrong. OGG? We use too low gas %d\n", txReceipt.CumulativeGasUsed)
 	} else {
 		fmt.Printf("Spawn gas used %d\n", txReceipt.CumulativeGasUsed)
@@ -237,8 +237,8 @@ func TestSetSpeedFeeAndSpawn(t *testing.T) {
 	}
 	tx, _ = breedingToken.Spawn(spawnOpsTooLow, "Mary never", 5)
 	backend.Commit()
-	txReceipt = waitTx(backend, ctx, tx)
-	if txReceipt.CumulativeGasUsed > 30000 {
+
+	if txReceipt := waitTx(backend, ctx, tx); txReceipt.CumulativeGasUsed > 30000 {
 		fmt.Errorf("It should raise OOG. But used gas is %d\n", txReceipt.CumulativeGasUsed)
 	}
 
